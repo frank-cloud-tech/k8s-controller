@@ -13,6 +13,8 @@ import (
 	appsV1Informer "k8s.io/client-go/informers/apps/v1"
 	appsV1 "k8s.io/client-go/listers/apps/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 	"os"
 	"os/signal"
@@ -173,6 +175,26 @@ func (c *Controller) Run(ctx context.Context, workers int) {
 	logger.Info("Shutting down workers")
 }
 
+func getResourceLock(client *kubernetes.Clientset) (resourcelock.Interface, error) {
+	lockName := "deployment-controller-lock"
+	lockNamespace := "default"
+	identity, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	return resourcelock.New(
+		resourcelock.LeasesResourceLock,
+		lockNamespace,
+		lockName,
+		client.CoreV1(),
+		client.CoordinationV1(),
+		resourcelock.ResourceLockConfig{
+			Identity: identity,
+		},
+	)
+}
+
 func main() {
 	var kubeconfig string
 	var master string
@@ -250,8 +272,33 @@ func main() {
 
 	controller := NewController(queue, deployLister, deployInformer)
 
-	informerFactory.Start(ctx.Done())
+	rl, err := getResourceLock(clientset)
+	if err != nil {
+		klog.Fatal(err)
+	}
+	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
+		Lock:          rl,
+		LeaseDuration: 60 * time.Second,
+		RenewDeadline: 15 * time.Second,
+		RetryPeriod:   5 * time.Second,
+		Callbacks: leaderelection.LeaderCallbacks{
+			OnStartedLeading: func(ctx context.Context) {
+				informerFactory.Start(ctx.Done())
+				go controller.Run(ctx, 1)
+			},
+			OnStoppedLeading: func() {
+				klog.Info("leaderelection lost")
+			},
+			OnNewLeader: func(identity string) {
+				if identity == rl.Identity() {
+					klog.Info("leaderelection won")
+				}
+			},
+		},
+	})
 
-	// Now let's start the controller
-	controller.Run(ctx, 1)
+	//informerFactory.Start(ctx.Done())
+	//
+	//// Now let's start the controller
+	//controller.Run(ctx, 1)
 }
