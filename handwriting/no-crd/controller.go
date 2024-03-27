@@ -158,8 +158,6 @@ func (c *Controller) Run(ctx context.Context, workers int) {
 	logger := klog.FromContext(ctx)
 	logger.Info("Starting Deploy controller")
 
-	//go c.informer.Run(stopCh)
-
 	// Wait for all involved caches to be synced, before processing items from the queue is started
 	if !cache.WaitForCacheSync(ctx.Done(), c.deployInformer.Informer().HasSynced) {
 		utilruntime.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
