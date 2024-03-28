@@ -9,6 +9,7 @@ import (
 	"golang.org/x/time/rate"
 	"k8s-controller/handwriting/with-crd/apis/foo/v1alpha1"
 	"k8s-controller/handwriting/with-crd/generated/clientset/versioned"
+	versionedScheme "k8s-controller/handwriting/with-crd/generated/clientset/versioned/scheme"
 	"k8s-controller/handwriting/with-crd/generated/informers/externalversions"
 	InformerV1alpha1 "k8s-controller/handwriting/with-crd/generated/informers/externalversions/foo/v1alpha1"
 	listerV1alpha1 "k8s-controller/handwriting/with-crd/generated/listers/foo/v1alpha1"
@@ -41,10 +42,11 @@ const (
 
 // Controller demonstrates how to implement a controller with client-go.
 type Controller struct {
-	queue       workqueue.RateLimitingInterface
-	fooLister   listerV1alpha1.FooLister     //k8s.io/code-generator自动生成的lister
-	fooInformer InformerV1alpha1.FooInformer //k8s.io/code-generator自动生成的informer
-	recorder    record.EventRecorder
+	sharedInformerFactory externalversions.SharedInformerFactory
+	queue                 workqueue.RateLimitingInterface
+	fooLister             listerV1alpha1.FooLister     //k8s.io/code-generator自动生成的lister
+	fooInformer           InformerV1alpha1.FooInformer //k8s.io/code-generator自动生成的informer
+	recorder              record.EventRecorder
 }
 
 // NewController creates a new Controller.
@@ -74,7 +76,7 @@ func NewController(ctx context.Context, clientset *kubernetes.Clientset, fooClie
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
 			if err == nil {
-				logger.Info("a new foo added", "key", key)
+				queue.Add(key)
 			}
 		},
 		// UpdateFunc is called when an existing foo object has been updated.
@@ -96,18 +98,28 @@ func NewController(ctx context.Context, clientset *kubernetes.Clientset, fooClie
 		},
 	})
 
+	// Create event broadcaster
+	// Add foo types to the default Kubernetes Scheme so Events can be
+	// logged for foo types.
+	utilruntime.Must(versionedScheme.AddToScheme(scheme.Scheme))
+	logger.V(4).Info("Creating event broadcaster")
+
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartStructuredLogging(0)
 	eventBroadcaster.StartRecordingToSink(&v1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: ControllerAgentName})
 
-	informerFactory.Start(ctx.Done())
 	return &Controller{
-		queue:       queue,
-		fooLister:   fooLister,
-		fooInformer: fooInformer,
-		recorder:    recorder,
+		sharedInformerFactory: informerFactory,
+		queue:                 queue,
+		fooLister:             fooLister,
+		fooInformer:           fooInformer,
+		recorder:              recorder,
 	}
+}
+
+func (c *Controller) startInformer(ctx context.Context) {
+	c.sharedInformerFactory.Start(ctx.Done())
 }
 
 func (c *Controller) processNextItem(ctx context.Context) bool {
@@ -184,6 +196,7 @@ func (c *Controller) syncToStdout(ctx context.Context, key string) error {
 	// Note that you also have to check the uid if you have a local controlled resource, which
 	// is dependent on the actual instance, to detect that a Foo was recreated with the same name
 	logger.Info("Sync/Add/Update for Foo", "foo", foo.GetName())
+	c.recorder.Event(foo, corev1.EventTypeNormal, "Synced", "Foo synced successfully")
 
 	return nil
 }
@@ -242,8 +255,8 @@ func (c *Controller) Run(ctx context.Context, workers int) {
 
 // getResourceLock creates a new resource lock
 func getResourceLock(client *kubernetes.Clientset) (resourcelock.Interface, error) {
-	lockName := "fooment-controller-lock"
-	lockNamespace := "default"
+	lockName := "foo-controller-lock"
+	lockNamespace := Namespace
 	identity, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -311,7 +324,8 @@ func main() {
 		RetryPeriod:   5 * time.Second,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
-				go controller.Run(ctx, 1)
+				controller.startInformer(ctx)
+				controller.Run(ctx, 1)
 			},
 			OnStoppedLeading: func() {
 				klog.Info("leaderelection lost")

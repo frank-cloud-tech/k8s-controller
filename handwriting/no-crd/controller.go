@@ -282,7 +282,7 @@ func main() {
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
 				informerFactory.Start(ctx.Done())
-				go controller.Run(ctx, 1)
+				controller.Run(ctx, 1)
 			},
 			OnStoppedLeading: func() {
 				klog.Info("leaderelection lost")
