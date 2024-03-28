@@ -72,7 +72,6 @@ func NewController(ctx context.Context, clientset *kubernetes.Clientset, fooClie
 	// register the event handler with the informer
 	fooInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		// AddFunc is called when a new foo object has been added to the store.
-		// 同步处理, 如果这里发生阻塞, 那么后续的事件将不会被处理(建议将对象放到queen中统一处理)
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
 			if err == nil {
