@@ -14,8 +14,8 @@
 2. 根据准备好的crd文件, 写对应的结构体等必要文件 [foo.go](handwriting%2Fwith-crd%2Fapis%2Ffoo%2Fv1alpha1%2Ffoo.go),  [doc.go](handwriting%2Fwith-crd%2Fapis%2Ffoo%2Fv1alpha1%2Fdoc.go), [register.go](handwriting%2Fwith-crd%2Fapis%2Ffoo%2Fv1alpha1%2Fregister.go)
    - 前两个文件中的注释不要删除
 
-
 3. 然后生成代码
+
 ```shell
 go mod vendor
 chmod +x ../vendor/k8s.io/code-generator/generate-groups.sh
