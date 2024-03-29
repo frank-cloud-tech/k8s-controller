@@ -16,7 +16,7 @@
 
 3. 然后生成代码
 
-```shell
+```bash
 go mod vendor
 chmod +x ../vendor/k8s.io/code-generator/generate-groups.sh
 chmod +x ../vendor/k8s.io/code-generator/generate-internal-groups.sh
