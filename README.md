@@ -30,6 +30,26 @@
     - [controller.go](handwriting%2Fwith-crd%2Fcontroller.go)
 
 ### 有crd, 调谐自定义资源和原生资源
+1. crd的创建以及代码生成和上一节中的 `有crd,调谐自定义资源` 相同
+2. 实现controller
+    - [controller.go](handwriting%2Fmulti-resource%2Fwith-crd-native%2Fcontroller.go), 该示例中只用一个controller调谐了两种资源, 一个是自定义资源, 一个是原生资源
 
 ### 有crd, 调谐自定义资源,原生资源和第三方自定义资源
+1. crd的创建以及代码生成和上一步中的 `有crd,调谐自定义资源` 相同
+2. 实现controller
+   - 该示例中启动了两个controller, 一个调谐自定义资源和原生资源, 一个调谐第三方自定义资源, 调谐第三方资源的时候用了dynamic客户端
+   - [controller.go](handwriting%2Fmulti-resource%2Fwith-crd-native-other%2Fcontroller.go)
+   - [controller_others.go](handwriting%2Fmulti-resource%2Fwith-crd-native-other%2Fcontroller_others.go)
+3. 启动controller
+   - [main.go](handwriting%2Fmulti-resource%2Fwith-crd-native-other%2Fmain.go)
 
+## Controller runtime
+
+### 有crd, 调谐自定义资源和原生资源
+1. crd的创建以及代码生成和上上一节中的 `有crd,调谐自定义资源` 相同
+2. 实现controller(十分之简单)
+   - [controller.go](controller_runtime%2Fcontroller.go)
+
+## kubebuilder
+- 笔记文档: https://green-hail-334.notion.site/operator-frank-0f0703a071e14006adad4e76c040f513?pvs=4
+- 示例代码: https://github.com/jianlong0808/operator-frank
